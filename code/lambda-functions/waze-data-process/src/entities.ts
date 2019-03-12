@@ -32,7 +32,8 @@ export class Alert {
     thumbs_up: number;
     jam_uuid: string;
     datafile_id: number;
-    dayofweek: number; 
+    dayofweek: number;
+    type_id: number;  
 }
 
 export class Jam {

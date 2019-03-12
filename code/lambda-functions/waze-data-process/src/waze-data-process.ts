@@ -265,6 +265,9 @@ const processDataAlerts: Handler = async (event: wazeTypes.dataFileWithInternalI
         //also grab the data_file_id
         let data_file_id = event.data_file_id;
 
+        // pre-cache some lookups that are called over and over
+        let alertTypeLookup = await db.getAlertTypeLookup(); 
+
         //create a list of tasks to process alerts _asynchronously_
         let taskList = event.alerts.map((alert: wazeTypes.alert) => async () => {
             //hash the whole alert along with the rootStart to get a unique id
@@ -292,11 +295,16 @@ const processDataAlerts: Handler = async (event: wazeTypes.dataFileWithInternalI
                 thumbs_up: alert.nThumbsUp,
                 jam_uuid: alert.jamUuid,
                 datafile_id: data_file_id, 
-                dayofweek: null
+                dayofweek: null,
+                type_id: null
             }
 
             // process dependent fields
-            alertEntity.dayofweek = alertEntity.pub_utc_date.getDay();             
+            alertEntity.dayofweek = alertEntity.pub_utc_date.getDay();   
+
+            let alertTypeId = alertTypeLookup.get(db.createAlertTypeKey(alertEntity.type,alertEntity.subtype));
+            if (alertTypeId !== undefined) alertEntity.type_id = alertTypeId; 
+            // Future -- if not found, insert it into alert_types.  Note possible race condition, verify unique index etc. 
 
             //upsert the alert
             await db.upsertAlertCommand(alertEntity);            
@@ -610,3 +618,8 @@ function invokeListProcessor(data: wazeTypes.dataFileWithInternalId, lambdaARN: 
 }
 
 export { processDataFile, processDataAlerts, processDataJams, processDataIrregularities }
+
+// import fs = require('fs');
+// let data = fs.readFileSync('../../samplealertevent.json','utf8');
+// let json = JSON.parse(data); 
+// processDataAlerts(json, null, (x)=>console.log('result:' + JSON.stringify(x)));

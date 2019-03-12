@@ -33,6 +33,24 @@ export async function insertDataFileCommand(data_file: entities.DataFile): Promi
     return data_file;
 };
 
+type DBLookup = Map<string,number>;
+
+export function createAlertTypeKey(type:string,subtype:string):string { 
+    type=type.toUpperCase();
+    if (!subtype) {subtype='NO_SUBTYPE' } else { subtype=subtype.toUpperCase();}
+    return type +"|"+subtype; 
+}
+
+export async function getAlertTypeLookup() : Promise<DBLookup> { 
+    const sql1 = `SELECT id, type, subtype from waze.alert_types`;
+    
+    let result : DBLookup = new Map<string,number>(); 
+    let dbresult = await connectionPool.getPool().query(sql1); 
+
+    dbresult.rows.forEach(row=> result.set(createAlertTypeKey(row['type'],row['subtype']), row['id']));
+    return result; 
+} 
+
 // upsert an alert record
 export async function upsertAlertCommand(alert: entities.Alert): Promise<void> {
     //for simplicity, we'll always insert and update all fields, since our hash should ensure there aren't unexpected changes
@@ -60,7 +78,8 @@ export async function upsertAlertCommand(alert: entities.Alert): Promise<void> {
             thumbs_up, 
             jam_uuid, 
             datafile_id,
-            dayofweek
+            dayofweek,
+            type_id
         )
         VALUES (
             $1,     -- id
@@ -83,7 +102,8 @@ export async function upsertAlertCommand(alert: entities.Alert): Promise<void> {
             $18,    -- thumbs_up
             $19,    -- jam_uuid 
             $20,    -- datafile_id
-            $21     -- dayofweek
+            $21,    -- dayofweek
+            $22     -- type_id
         ) 
         ON CONFLICT (id) DO UPDATE SET 
             uuid=$2, 
@@ -105,7 +125,8 @@ export async function upsertAlertCommand(alert: entities.Alert): Promise<void> {
             thumbs_up=$18, 
             jam_uuid=$19, 
             datafile_id=$20,
-            dayofweek=$21`;
+            dayofweek=$21,
+            type_id=$22`;
     //#endregion
 
     let result = await connectionPool.getPool().query(sql, [
@@ -129,7 +150,8 @@ export async function upsertAlertCommand(alert: entities.Alert): Promise<void> {
         alert.thumbs_up,            //thumbs_up
         alert.jam_uuid ,            //jam_uuid 
         alert.datafile_id,          //datafile_id
-        alert.dayofweek             //dayofweek
+        alert.dayofweek,            //dayofweek
+        alert.type_id
     ]);
 
     //nothing currently to alter on the alert object based on SQL return
